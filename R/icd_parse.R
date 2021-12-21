@@ -126,21 +126,30 @@ icd_parse <- function (str, type = "bounded", bind_rows = TRUE) {
 #' is_icd_code("E15.9")
 #'
 #' @export
-is_icd_code <- function(str, year = NULL, parse = TRUE) {
-  # First test whether str matches the pattern of a ICD code,
-  # without any extraneous characters
+is_icd_code <- function (str, year = NULL, parse =TRUE, code=c("sub","norm")[2])
+  # expands is_icd_code on the option to check if it is a normcode
+{
   matches_pattern <- grepl(regex_icd_only, str)
-
-  if (parse)
-    str <- icd_parse(str, type = "strict")$icd_sub
-
-  if (is.null(year) || !(year > 2003 & year < 2100)) {
-    valid_codes <- unique(ICD10gm::icd_meta_codes$icd_sub)
-  } else {
-    valid_codes <- ICD10gm::get_icd_labels(year = year)$icd_sub
+  if (code=="sub"){
+    if (parse) 
+      str <- icd_parse(str, type = "strict")$icd_sub
+    if (is.null(year) || !(year > 2003 & year < 2100)) {
+      valid_codes <- unique(ICD10gm::icd_meta_codes$icd_sub)
+    }
+    else {
+      valid_codes <- ICD10gm::get_icd_labels(year = year)$icd_sub
+    }
   }
-
-  # Test whether parsed codes are valid for the given year
+  if (code=="norm"){
+    if (parse) 
+      str <- icd_parse(str, type = "strict")$icd_spec
+    if (is.null(year) || !(year > 2003 & year < 2100)) {
+      valid_codes <- unique(ICD10gm::icd_meta_codes$icd_normcode)
+    }
+    else {
+      valid_codes <- get_icd_labels(year = year)$icd_normcode
+    }
+  }
   matches_pattern & (str %in% valid_codes)
 }
 
