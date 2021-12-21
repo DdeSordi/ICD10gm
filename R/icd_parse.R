@@ -88,6 +88,12 @@ icd_parse <- function (str, type = "bounded", bind_rows = TRUE) {
                                     sub("-", "", out$icd_subcode),
                                     sep = "")),
                          NA_character_)
+    out$icd_norm <- ifelse(!is.na(out$icd3) & !is.na(out$icd_subcode),
+                         gsub("\\.?NA", "",
+                              paste(out$icd3,
+                                    sub("-", "", out$icd_subcode),
+                                    sep = ".")),
+                         NA_character_)
   }
 
 
