@@ -154,20 +154,24 @@
 #' get_icd_labels(year = 2019, icd3 = "I25")
 #' get_icd_labels(year = 2019, search = "Asthma")
 #' @export
-get_icd_labels <- function(year = NULL, icd3 = NULL, search = NULL, ...){
-  out <- ICD10gm::icd_meta_codes[, c("year", "icd3", "icd_code",
-                                 "icd_normcode", "icd_sub", "label")]
-
-  if(!is.null(year) & all(grepl("^\\d{4}$", year)))
+get_icd_labels <- function (year = NULL, icd3 = NULL, icd_code = NULL, icd_normcode = NULL, icd_sub=NULL, search = NULL,
+                        outvars=c("year", "icd3","icd_code", "icd_normcode", "icd_sub","label","chapter_nr","level","terminal","icd_block_first"), ...) 
+  # It is like get_icd_labels() but with the option for more different input and output
+{
+  out <- ICD10gm::icd_meta_codes[, outvars]
+  if (!is.null(year) & all(grepl("^\\d{4}$", year))) 
     out <- out[out$year %in% year, ]
-
-  if(!is.null(icd3) & all(grepl("^[A-Za-z]\\d{2}", icd3)))
+  if (!is.null(icd3) & all(grepl("^[A-Za-z]\\d{2}", icd3))) 
     out <- out[out$icd3 %in% icd3, ]
-
-  if(!is.null(search) & is.character(search))
+  if (!is.null(icd_code) & all(grepl("^[A-Za-z]\\d{2}", icd_code))) 
+    out <- out[out$icd_code %in% icd_code, ]  
+  if (!is.null(icd_normcode) & all(grepl("^[A-Za-z]\\d{2}", icd_normcode))) 
+    out <- out[out$icd_normcode %in% icd_normcode, ]
+  if (!is.null(icd_sub) & all(grepl("^[A-Za-z]\\d{2}", icd_sub))) 
+    out <- out[out$icd_sub %in% icd_sub, ] 
+  if (!is.null(search) & is.character(search)) 
     out <- out[agrep(search, out$label, ...), ]
-
-   return(out)
+  return(out)
 }
 
 #' Get ICD history metadata
@@ -240,3 +244,101 @@ get_icd_history <- function(years = NULL, icd3 = NULL){
 #' @family Charlson
 #' @source \doi{10.1016/j.jclinepi.2004.03.012}
 "charlson_sundararajan"
+
+
+  # This function should give back a line per Code with all Infos about chapter and subchapter and labels of an ICD-Code
+  # It was created to label a big dataset where only ICD-Codes where availible
+  # With the additional labels the ICD-Codes can be displayed better in different levels, this helbs for tables and graphics
+  # This function can be slickend a lot i think but it works for me.
+
+icd_label <- function(Year=NULL , ICD_normcode=NULL ){
+if(!all(na.omit(as.numeric(Year)) %in% min(ICD10gm::icd_meta_chapters$year):max(ICD10gm::icd_meta_chapters$year))) stop("At least one year is not in the range of 2004 to 2022")
+if(!all(is_icd_code(na.omit(ICD_normcode)))){stop("ICD_normcode contains at least one string that is not an ICD-Code \n use is_icd_code() to check the variable")}
+
+for (k in 1:length(Year)){
+if(!is_icd_code(ICD_normcode[k], year = Year[k])) stop(paste("Normcode",ICD_normcode[k],"in row",k,"does not exist or at least not in the year",Year[k],".\n Please use is_icd_code() to check."))
+icd_lab <- get_icd_labels(icd_normcode =  ICD_normcode[k], year = Year[k])
+icd_lab$row <- as.numeric(row.names(icd_lab))
+
+# chapter label (level1)
+icd_lab <- merge(icd_lab,icd_meta_chapters[icd_meta_chapters$year== Year[k],c("chapter","chapter_label")],by.x="chapter_nr",by.y = "chapter")
+# icd_block_first (level2)
+icd_lab <-merge(icd_lab,icd_meta_blocks[icd_meta_blocks$year== Year[k],c("icd_block_first","block_label")],by="icd_block_first")
+icd_lab <- icd_lab[,c("row","year",
+                      "icd3",
+                      "icd_code",
+                      "icd_normcode",
+                      "icd_sub",
+                      "label",
+                      "level",
+                      "terminal",
+                      "chapter_nr",
+                      "chapter_label",
+                      "icd_block_first",
+                      "block_label")]
+                   
+out_e <- data.frame(matrix("",ncol = 15, nrow = 1))
+names(out_e) <- c("lvl_3_icd_code",
+                 "lvl_3_icd_normcode",
+                 "lvl_3_icd_sub",
+                 "lvl_3_label",
+                 "lvl_3_terminal",
+                 "lvl_4_icd_code",
+                 "lvl_4_icd_normcode",
+                 "lvl_4_icd_sub",
+                 "lvl_4_label",
+                 "lvl_4_terminal",
+                 "lvl_5_icd_code",
+                 "lvl_5_icd_normcode",
+                 "lvl_5_icd_sub",
+                 "lvl_5_label",
+                 "lvl_5_terminal")
+icd_lab <- cbind(icd_lab,out_e)
+
+if (icd_lab$level == 3){
+  icd_lab[,stringr::str_detect(names(icd_lab),"lvl_3")] <- icd_lab[,c("icd_code", "icd_normcode", "icd_sub", 
+                                                             "label","terminal")]
+}
+
+l3 <- l4 <- icd_lab[,c("icd_code", "icd_normcode", "icd_sub", "label","terminal", "level")]
+i=j=0
+if (icd_lab$level >= 4){
+  while( l3$level >= 4){
+    l3 <- icd_meta_codes[icd_lab$row-i,c("icd_code", "icd_normcode", "icd_sub", 
+                                                            "label","terminal", "level")]
+    i = i+1
+  }
+  icd_lab[,stringr::str_detect(names(icd_lab),"lvl_3")] <- l3[,c("icd_code", "icd_normcode", "icd_sub", 
+                                                        "label","terminal")]
+  icd_lab[,stringr::str_detect(names(icd_lab),"lvl_4")] <- icd_lab[,c("icd_code", "icd_normcode", "icd_sub", 
+                                                             "label","terminal")]
+}
+if (icd_lab$level == 5){
+while( l4$level >= 5){
+  l4 <-  icd_meta_codes[icd_lab$row-j,c("icd_code", "icd_normcode", "icd_sub", 
+                                                        "label","terminal", "level")]
+    j = j+1
+}
+  icd_lab[,stringr::str_detect(names(icd_lab),"lvl_4")] <- l4[,c("icd_code", "icd_normcode", "icd_sub", 
+                                                        "label","terminal")]
+  icd_lab[,stringr::str_detect(names(icd_lab),"lvl_5")] <- icd_lab[,c("icd_code", "icd_normcode", "icd_sub", 
+                                                             "label","terminal")]
+}
+ifelse(k>1, icd_out <- rbind(icd_out, icd_lab), icd_out <- icd_lab)
+icd_out
+}
+return(icd_out)
+}
+
+# a <- data.frame(matrix(
+#   c("2019", "E66.80","2019","E66.00", "2020", "E66.12","2017","E66.19","2020","E66.24"),ncol=2, byrow=T  ))
+# 
+# a
+# 
+# icds <- icd_label(
+#   Year=a[,1]
+#   ,
+#   ICD_normcode =  a[,2]
+# )
+# 
+# View(t(icds))
