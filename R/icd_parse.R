@@ -148,7 +148,7 @@ is_icd_code <- function(str, year = NULL, parse = TRUE) {
   }
   if (code=="norm"){
     if (parse) 
-      str <- icd_parse(str, type = "strict")$icd_spec
+      str <- icd_parse(str, type = "strict")$icd_norm
     if (is.null(year) || !(year >= min(ICD10gm::icd_meta_chapters$year) & year =< max(ICD10gm::icd_meta_chapters$year))) {
       valid_codes <- unique(ICD10gm::icd_meta_codes$icd_normcode)
     }
