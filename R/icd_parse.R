@@ -132,9 +132,10 @@ icd_parse <- function (str, type = "bounded", bind_rows = TRUE) {
 #' is_icd_code("E15.9")
 #'
 #' @export
-is_icd_code <- function(str, year = NULL, parse = TRUE) {
+is_icd_code <- function(str, year = NULL, parse = TRUE, code="sub") {
   # First test whether str matches the pattern of a ICD code,
   # without any extraneous characters
+  # code ca n be "sub" or "norm"
   matches_pattern <- grepl(regex_icd_only, str)
   if (code=="sub"){
     if (parse) 
@@ -156,6 +157,8 @@ is_icd_code <- function(str, year = NULL, parse = TRUE) {
       valid_codes <- get_icd_labels(year = year)$icd_normcode
     }
   }
+  
+  # Test whether parsed codes are valid for the given year
   matches_pattern & (str %in% valid_codes)
 }
 
